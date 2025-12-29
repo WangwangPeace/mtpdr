@@ -680,8 +680,16 @@ def render_dashboard_page():
     df = db_manager.get_all_reports(username=current_user_fullname, is_admin=is_admin)
     
     # 顶部统计指标
-    total_reports = len(df)
-    today_reports = len(df[df['report_date'] == date.today().strftime("%Y-%m-%d")])
+    if df.empty:
+        total_reports = 0
+        today_reports = 0
+    else:
+        total_reports = len(df)
+        # 确保列存在，防止报错
+        if 'report_date' in df.columns:
+            today_reports = len(df[df['report_date'] == date.today().strftime("%Y-%m-%d")])
+        else:
+            today_reports = 0
     
     with st.container(border=True):
         m1, m2 = st.columns(2)
