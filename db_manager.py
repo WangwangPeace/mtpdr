@@ -147,31 +147,31 @@ def add_report(employee_name, report_date, work_content, next_plan, problems):
             st.error(f"提交失败: {e}")
             return False
 
-def get_previous_plan(employee_name, current_date_str):
+def get_previous_plan(employee_name, current_date):
     """
-    获取指定日期之前的最近一条日报的“明日计划”
-    employee_name: 员工全名
-    current_date_str: 当前填写的日报日期 'YYYY-MM-DD'
-    返回: (plan_content, report_date_str) 或 (None, None)
+    获取最近一次日报的“明日计划”
+    逻辑：查找该员工在 current_date 之前提交的最后一条日报
     """
-    with st.spinner("正在查找昨日计划..."):
-        client = get_client()
-        try:
-            # 查询日期小于 current_date 的最近一条记录
-            response = client.table("reports").select("next_plan, report_date")\
-                .eq("employee_name", employee_name)\
-                .lt("report_date", current_date_str)\
-                .order("report_date", desc=True)\
-                .limit(1)\
-                .execute()
-                
-            data = response.data
-            if data and len(data) > 0:
-                return data[0].get('next_plan', ''), data[0].get('report_date', '')
-            return None, None
-        except Exception as e:
-            print(f"Error getting previous plan: {e}")
-            return None, None
+    client = get_client()
+    try:
+        # 查找该员工，且日期小于当前日期的记录，按日期倒序排列，取第一条
+        response = (
+            client.table("reports")
+            .select("next_plan, report_date")
+            .eq("employee_name", employee_name)
+            .lt("report_date", current_date)
+            .order("report_date", desc=True)
+            .limit(1)
+            .execute()
+        )
+            
+        data = response.data
+        if data and len(data) > 0:
+            return data[0].get('next_plan', ''), data[0].get('report_date', '')
+        return None, None
+    except Exception as e:
+        print(f"Get previous plan error: {e}")
+        return None, None
 
 def get_all_reports(username=None, is_admin=False):
     """
