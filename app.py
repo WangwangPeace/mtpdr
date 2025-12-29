@@ -648,29 +648,55 @@ def render_submission_page(user):
         if last_plan:
             st.info(f"💡  昨日(**{last_date})制定的计划：**\n\n{last_plan}")
         
-        with st.form("report_form", border=False):
-            work_content = st.text_area("今日工作内容 (必填)", height=150, placeholder="请输入今日完成的主要工作...")
-            next_plan = st.text_area("明日工作计划 (选填)", height=100, placeholder="请输入明天的计划...")
-            problems = st.text_area("遇到的困难/需要的协助 (选填)", height=100, placeholder="如有需要协助的事项请填写...")
+        # 检查今天是否已经提交过日报（可选优化，目前先只做提交后的状态切换）
+        if 'submission_success' not in st.session_state:
+            st.session_state['submission_success'] = False
             
-            st.markdown("<br>", unsafe_allow_html=True)
-            submitted = st.form_submit_button("提交日报", type="primary", use_container_width=True)
+        if st.session_state['submission_success']:
+            st.success("✅ 日报已成功提交！")
+            st.balloons()
             
-            if submitted:
-                if not work_content.strip():
-                    st.error("❌ 今日工作内容不能为空！")
-                else:
-                    success = db_manager.add_report(
-                        employee_name=user['full_name'], 
-                        report_date=report_date.strftime("%Y-%m-%d"),
-                        work_content=work_content.strip(),
-                        next_plan=next_plan.strip(),
-                        problems=problems.strip()
-                    )
-                    if success:
-                        st.toast("✅ 日报提交成功！", icon="🎉")
+            st.markdown("""
+            <div style="text-align: center; padding: 20px;">
+                <p>您已完成今日日报填写。</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            col_btn1, col_btn2 = st.columns(2)
+            with col_btn1:
+                if st.button("👀 去查看汇总", use_container_width=True):
+                    st.session_state['current_page'] = "查看汇总"
+                    st.session_state['submission_success'] = False # 重置状态以便下次填写
+                    st.rerun()
+            with col_btn2:
+                if st.button("✍️ 再写一份", use_container_width=True):
+                    st.session_state['submission_success'] = False
+                    st.rerun()
+        else:
+            with st.form("report_form", border=False):
+                work_content = st.text_area("今日工作内容 (必填)", height=150, placeholder="请输入今日完成的主要工作...")
+                next_plan = st.text_area("明日工作计划 (选填)", height=100, placeholder="请输入明天的计划...")
+                problems = st.text_area("遇到的困难/需要的协助 (选填)", height=100, placeholder="如有需要协助的事项请填写...")
+                
+                st.markdown("<br>", unsafe_allow_html=True)
+                submitted = st.form_submit_button("提交日报", type="primary", use_container_width=True)
+                
+                if submitted:
+                    if not work_content.strip():
+                        st.error("❌ 今日工作内容不能为空！")
                     else:
-                        st.error("❌ 提交失败。")
+                        success = db_manager.add_report(
+                            employee_name=user['full_name'], 
+                            report_date=report_date.strftime("%Y-%m-%d"),
+                            work_content=work_content.strip(),
+                            next_plan=next_plan.strip(),
+                            problems=problems.strip()
+                        )
+                        if success:
+                            st.session_state['submission_success'] = True
+                            st.rerun()
+                        else:
+                            st.error("❌ 提交失败。")
 
 def render_dashboard_page():
     """
