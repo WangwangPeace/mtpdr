@@ -1,8 +1,18 @@
 import streamlit as st
 import pandas as pd
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 import db_manager
 from streamlit_option_menu import option_menu
+
+# --- 时区处理 ---
+def get_beijing_today():
+    """
+    获取北京时间的当前日期
+    Streamlit Cloud 服务器是 UTC 时间，需要手动+8小时
+    """
+    utc_now = datetime.now(timezone.utc)
+    beijing_now = utc_now + timedelta(hours=8)
+    return beijing_now.date()
 
 # 设置页面配置
 st.set_page_config(
@@ -493,7 +503,7 @@ def render_monthly_goal_page(user):
     
     col_year, col_month, col_empty = st.columns([1, 1, 3])
     
-    today = date.today()
+    today = get_beijing_today()
     with col_year:
         start_year = 2024
         end_year = today.year + 2
@@ -623,14 +633,14 @@ def render_submission_page(user):
     渲染日报填写页面
     """
     st.markdown("## 📝 填写日报")
-    st.caption(f"今天是 {date.today().strftime('%Y年%m月%d日')}")
+    st.caption(f"今天是 {get_beijing_today().strftime('%Y年%m月%d日')}")
     
     with st.container(border=True):
         col1, col2 = st.columns(2)
         with col1:
             st.text_input("姓名", value=user['full_name'], disabled=True)
         with col2:
-            report_date = st.date_input("日期", value=date.today(), format="YYYY/MM/DD")
+            report_date = st.date_input("日期", value=get_beijing_today(), format="YYYY/MM/DD")
 
         current_date_str = report_date.strftime("%Y-%m-%d")
         last_plan, last_date = db_manager.get_previous_plan(user['full_name'], current_date_str)
@@ -687,7 +697,7 @@ def render_dashboard_page():
         total_reports = len(df)
         # 确保列存在，防止报错
         if 'report_date' in df.columns:
-            today_reports = len(df[df['report_date'] == date.today().strftime("%Y-%m-%d")])
+            today_reports = len(df[df['report_date'] == get_beijing_today().strftime("%Y-%m-%d")])
         else:
             today_reports = 0
     
