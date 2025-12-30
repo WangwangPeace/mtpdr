@@ -698,6 +698,27 @@ def render_submission_page(user):
                         else:
                             st.error("❌ 提交失败。")
 
+@st.dialog("📋 日报详情")
+def show_report_details(row):
+    st.markdown(f"### 📅 {row['report_date']} - {row['employee_name']}")
+    st.markdown("---")
+    
+    st.markdown("#### ✅ 今日工作内容")
+    st.info(row['work_content'])
+    
+    st.markdown("#### 📅 明日工作计划")
+    st.warning(row['next_plan'] if row['next_plan'] else "（未填写）")
+    
+    st.markdown("#### 🆘 困难/协助")
+    st.error(row['problems'] if row['problems'] else "（无）")
+    
+    # 格式化提交时间显示
+    created_at_display = row['created_at']
+    if hasattr(created_at_display, 'strftime'):
+        created_at_display = created_at_display.strftime('%Y-%m-%d %H:%M:%S')
+        
+    st.caption(f"提交时间: {created_at_display}")
+
 def render_dashboard_page():
     """
     渲染汇总查看页面
@@ -762,33 +783,59 @@ def render_dashboard_page():
                 filtered_df = filtered_df[filtered_df['report_date'] == filter_date.strftime("%Y-%m-%d")]
                 
         with col_filter_3:
-            # 这里可以放导出按钮或者其他操作
             st.markdown(f"<div style='padding-top: 32px; text-align: right;'><b>当前展示: {len(filtered_df)} 条记录</b></div>", unsafe_allow_html=True)
 
+    # --- 时区转换逻辑 (提前到 filtered_df) ---
+    # 确保所有后续使用 (表格显示、详情弹窗、导出) 都使用正确的北京时间
+    if 'created_at' in filtered_df.columns and not filtered_df.empty:
+        filtered_df['created_at'] = pd.to_datetime(filtered_df['created_at'])
+        # 如果没有时区信息，假设它是 UTC 并添加时区；如果有，直接转为 Asia/Shanghai
+        filtered_df['created_at'] = filtered_df['created_at'].apply(
+            lambda x: x.tz_localize('UTC').tz_convert('Asia/Shanghai') if x.tzinfo is None else x.tz_convert('Asia/Shanghai')
+        )
+
     # 数据表格展示
-    cols_to_show = ['report_date', 'employee_name', 'work_content', 'next_plan', 'problems', 'created_at']
-    cols_to_show = [c for c in cols_to_show if c in filtered_df.columns]
+    # 移动端优化：只展示关键摘要信息，详细内容点击查看
+    st.info("👆 **提示：点击表格任意一行，即可查看完整日报详情**")
     
+    # 精简显示列，只保留最基础信息
+    display_df = filtered_df.copy()
+    
+    # 构建表格配置
     column_config = {
         "report_date": st.column_config.DateColumn("汇报日期", format="YYYY-MM-DD", width="small"),
-        "employee_name": st.column_config.TextColumn("员工姓名", width="small"),
-        "work_content": st.column_config.TextColumn("今日工作内容", width="large"),
-        "next_plan": st.column_config.TextColumn("明日工作计划", width="medium"),
-        "problems": st.column_config.TextColumn("困难/协助", width="medium"),
-        "created_at": st.column_config.DatetimeColumn("提交时间", format="YYYY-MM-DD HH:mm:ss")
+        "employee_name": st.column_config.TextColumn("姓名", width="small"),
+        "created_at": st.column_config.DatetimeColumn("提交时间", format="MM-DD HH:mm", width="small"),
     }
     
-    st.dataframe(
-        filtered_df[cols_to_show], 
+    # 使用 selection_mode="single-row" 实现单选详情
+    event = st.dataframe(
+        display_df[['report_date', 'employee_name', 'created_at']], 
         use_container_width=True, 
         hide_index=True,
         column_config=column_config,
-        height=600  # 增加高度
+        height=500,
+        on_select="rerun",
+        selection_mode="single-row"
     )
+    
+    # 处理选中事件
+    if event.selection.rows:
+        selected_index = event.selection.rows[0]
+        # 注意：这里需要从原始 filtered_df 中获取数据，因为 display_df 可能是经过排序或筛选的
+        # 但 st.dataframe 返回的 index 是基于当前展示数据的 index
+        # 简单起见，我们直接用 iloc 获取
+        selected_row = filtered_df.iloc[selected_index]
+        show_report_details(selected_row)
     
     # 底部导出按钮
     if not filtered_df.empty:
-        export_df = filtered_df[cols_to_show].rename(columns={
+        # 定义导出需要的列（包含详细内容）
+        export_cols = ['report_date', 'employee_name', 'work_content', 'next_plan', 'problems', 'created_at']
+        # 确保列存在
+        export_cols = [c for c in export_cols if c in filtered_df.columns]
+        
+        export_df = filtered_df[export_cols].rename(columns={
             "report_date": "汇报日期",
             "employee_name": "员工姓名",
             "work_content": "今日工作内容",
