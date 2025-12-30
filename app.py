@@ -819,6 +819,12 @@ def render_dashboard_page():
         selection_mode="single-row"
     )
     
+    if not is_admin:
+        st.markdown(
+            "<style>[data-testid='stDataFrame'] [aria-label='Download as CSV']{display:none !important}</style>",
+            unsafe_allow_html=True
+        )
+    
     # 处理选中事件
     if event.selection.rows:
         selected_index = event.selection.rows[0]
@@ -828,13 +834,9 @@ def render_dashboard_page():
         selected_row = filtered_df.iloc[selected_index]
         show_report_details(selected_row)
     
-    # 底部导出按钮
-    if not filtered_df.empty:
-        # 定义导出需要的列（包含详细内容）
+    if is_admin and not filtered_df.empty:
         export_cols = ['report_date', 'employee_name', 'work_content', 'next_plan', 'problems', 'created_at']
-        # 确保列存在
         export_cols = [c for c in export_cols if c in filtered_df.columns]
-        
         export_df = filtered_df[export_cols].rename(columns={
             "report_date": "汇报日期",
             "employee_name": "员工姓名",
@@ -843,9 +845,7 @@ def render_dashboard_page():
             "problems": "遇到的困难/协助",
             "created_at": "提交时间"
         })
-        
         csv_data = export_df.to_csv(index=False).encode('utf-8-sig')
-        
         col_export_1, col_export_2 = st.columns([4, 1])
         with col_export_2:
             st.download_button(
