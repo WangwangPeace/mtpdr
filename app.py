@@ -138,7 +138,12 @@ def load_css():
             background-color: white;
             padding: 1rem;
             border-radius: 10px;
+            border: 1px solid rgba(49,51,63,0.12);
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        [data-testid="stDataFrameResizable"] {
+            border: 1px solid rgba(49,51,63,0.12) !important;
+            border-radius: 10px !important;
         }
         
         /* Metric 数值显示 */
